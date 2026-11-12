@@ -1,0 +1,101 @@
+---
+title: "PerformanceAnalytics 패키지 활용 예시"
+subtitle: "투자 성과와 위험을 함께 평가하기"
+author: "이름 / 학번"
+date: "2026-12-04"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: false
+  html_document:
+    toc: true
+mainfont: "Malgun Gothic"   # macOS는 "AppleGothic", Linux는 "NanumGothic"으로 바꾸세요
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                      fig.width = 8, fig.height = 6)
+```
+
+# 1. 준비: 패키지와 데이터
+
+```{r}
+# install.packages("PerformanceAnalytics")   # 처음 한 번만 실행
+library(PerformanceAnalytics)
+
+data(edhec)                 # 패키지 내장 데이터: EDHEC 헤지펀드 전략 지수의 월간 수익률
+R <- edhec[, 1:3]           # 앞의 3개 전략만 사용
+head(R)
+```
+
+- `edhec`는 날짜가 붙은 시계열(xts) 형식의 **월간 수익률** 데이터입니다.
+- 분석 기간: `r format(start(R))` ~ `r format(end(R))` (총 `r nrow(R)`개월)
+- 사용 전략: `r paste(colnames(R), collapse = ", ")`
+
+# 2. 연환산 수익률과 변동성: `table.AnnualizedReturns()`
+
+```{r}
+table.AnnualizedReturns(R)
+```
+
+- 월간 수익률을 **1년 기준**으로 환산한 수익률, 변동성(표준편차), 샤프지수를 표 하나로 보여줍니다.
+
+# 3. 위험 대비 수익: `SharpeRatio()`
+
+```{r}
+sr <- SharpeRatio(R, Rf = 0, FUN = "StdDev", annualize = TRUE)
+sr
+```
+
+- 샤프지수 = (수익률 − 무위험수익률) / 변동성. **위험 한 단위를 감수해서 얻은 수익**을 나타냅니다.
+- 이 예시에서는 무위험수익률을 0으로 두었습니다(`Rf = 0`).
+- 샤프지수가 가장 높은 전략은 **`r colnames(sr)[which.max(sr)]`**(`r round(max(sr), 2)`)입니다.
+
+# 4. 최대 낙폭: `maxDrawdown()`
+
+```{r}
+mdd <- maxDrawdown(R)
+mdd
+```
+
+- 최대 낙폭(MDD)은 **투자 기간 중 고점에서 저점까지 가장 크게 떨어진 비율**입니다.
+- 낙폭이 가장 컸던 전략은 **`r colnames(R)[which.max(mdd)]`**(약 `r round(max(mdd) * 100, 1)`% 하락),
+  가장 작았던 전략은 **`r colnames(R)[which.min(mdd)]`**(약 `r round(min(mdd) * 100, 1)`% 하락)입니다.
+
+```{r}
+# 가장 큰 하락 구간 상위 3개 (시작일, 바닥일, 회복일, 하락폭)
+table.Drawdowns(R[, 1], top = 3)
+```
+
+# 5. 한 화면 요약: `charts.PerformanceSummary()`
+
+```{r}
+charts.PerformanceSummary(R, main = "EDHEC 전략 3개 성과 요약")
+```
+
+그래프는 세 부분으로 되어 있습니다.
+
+1. **누적 수익(Cumulative Return)**: 1을 투자했을 때 자산이 어떻게 불어났는지
+2. **월간 수익률(Monthly Return)**: 각 달의 수익률 막대
+3. **낙폭(Drawdown)**: 직전 고점 대비 얼마나 떨어져 있는지
+
+# 6. 정리
+
+| 함수 | 알 수 있는 것 |
+|---|---|
+| `table.AnnualizedReturns()` | 연환산 수익률·변동성·샤프지수 |
+| `SharpeRatio()` | 위험 대비 수익 |
+| `maxDrawdown()`, `table.Drawdowns()` | 최악의 하락 폭과 하락 구간 |
+| `charts.PerformanceSummary()` | 누적 수익·월간 수익률·낙폭을 한 화면에 |
+
+수익률만 보면 위험이 큰 전략이 좋아 보일 수 있습니다.
+PerformanceAnalytics를 쓰면 **수익, 변동성, 하락 위험을 함께 비교**할 수 있습니다.
+
+---
+
+**AI 활용 고지:** Claude(AI)를 활용해 예제 구성과 코드 구조 제안을 받았으며,
+모든 코드와 실행 결과는 본인이 RStudio에서 직접 실행해 확인했습니다.
+
+```{r}
+sessionInfo()$otherPkgs$PerformanceAnalytics$Version   # 사용한 패키지 버전
+```
